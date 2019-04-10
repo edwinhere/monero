@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 922b6c5b973a1913ffaca8fb6c57df35855f94a127f4cb8c34d7f2a0530f65aa
+-- hash: c545d364c90bc2af3f3f08f72db924fb788c403ce0c77c6bb274826f6b2e7be5
 
 name:           monero
 version:        0.1.0.0
@@ -35,6 +35,9 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cryptonite
+    , memory
   default-language: Haskell2010
 
 executable monero-exe
@@ -46,6 +49,9 @@ executable monero-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cryptonite
+    , memory
     , monero
   default-language: Haskell2010
 
@@ -60,6 +66,9 @@ test-suite monero-test
   build-depends:
       QuickCheck
     , base >=4.7 && <5
+    , bytestring
+    , cryptonite
     , hspec
+    , memory
     , monero
   default-language: Haskell2010
