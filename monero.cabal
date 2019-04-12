@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c545d364c90bc2af3f3f08f72db924fb788c403ce0c77c6bb274826f6b2e7be5
+-- hash: 34deae0ef41e6786f69ba11b5a832bf80479ca6b4b3d60860e4058690debd98b
 
 name:           monero
 version:        0.1.0.0
@@ -36,6 +36,7 @@ library
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , cereal
     , cryptonite
     , memory
   default-language: Haskell2010
@@ -50,6 +51,7 @@ executable monero-exe
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , cereal
     , cryptonite
     , memory
     , monero
@@ -67,6 +69,7 @@ test-suite monero-test
       QuickCheck
     , base >=4.7 && <5
     , bytestring
+    , cereal
     , cryptonite
     , hspec
     , memory
