@@ -19,10 +19,15 @@ schnorr = do
     challenge <- scalarGenerate
     privateKey <- scalarGenerate
     let
+        publicKey :: Point
         publicKey = toPoint privateKey
+        αG :: Point
         αG = toPoint α
+        response :: Scalar
         response = α `scalarAdd` (challenge `scalarMul` privateKey)
+        lhs :: Point
         lhs  = toPoint response
+        rhs :: Point
         rhs = αG `pointAdd` (challenge `pointMul` publicKey)
     print lhs
     print rhs
@@ -32,11 +37,17 @@ fiatShamir = do
     α <- scalarGenerate
     privateKey <- scalarGenerate
     let
+        publicKey :: Point
         publicKey = toPoint privateKey
+        αG :: Point
         αG = toPoint α
+        challenge :: Scalar
         challenge = generateChallenge αG
+        response :: Scalar
         response = α `scalarAdd` (challenge `scalarMul` privateKey)
+        lhs :: Point
         lhs  = toPoint response
+        rhs :: Point
         rhs = αG `pointAdd` (challenge `pointMul` publicKey)
     print lhs
     print rhs
