@@ -12,6 +12,10 @@ import Crypto.Error
 import Data.Modular
 
 type PrimeOrder = Integer/7237005577332262213973186563042994240857116359379907606001950938285454250989
+type PrivateKey = Scalar
+type PublicKey  = Point
+type Message = ByteString
+
 
 s2bs :: Scalar -> ByteString
 s2bs = scalarEncode
@@ -33,6 +37,7 @@ main = do
     schnorr
     fiatShamir
     schnorrWithMessage ""
+    edDSA ""
 
 schnorr :: IO ()
 schnorr = do
@@ -73,8 +78,6 @@ fiatShamir = do
     print lhs
     print rhs
 
-type Message = ByteString
-
 schnorrWithMessage :: Message -> IO ()
 schnorrWithMessage m = do
     α <- scalarGenerate
@@ -101,3 +104,39 @@ schnorrWithMessage m = do
           )
     print . B.unpack . s2bs $ lhs
     print . B.unpack . s2bs $ rhs
+
+edDSASign :: PrivateKey -> Message -> (Point, Scalar)
+edDSASign k m = (αG, response)
+    where
+        publicKey :: Point
+        publicKey = toPoint k
+        hk :: ByteString
+        hk = convert . hashWith SHA256 . s2bs $ k
+        α :: Scalar
+        α = throwCryptoError . scalarDecodeLong . hashWith SHA256 $ (B.concat [hk, m])
+        αG :: Point
+        αG = toPoint α
+        challenge :: Scalar
+        challenge = throwCryptoError . scalarDecodeLong . hashWith SHA256 $ (B.concat [pointEncode αG, pointEncode publicKey, m])
+        response :: Scalar
+        response = α `scalarAdd` (challenge `scalarMul` k)
+
+edDSAVerify :: PublicKey -> (Point, Scalar) -> Message -> Bool
+edDSAVerify publicKey (αG, response) m = result
+    where
+        challenge' :: Scalar
+        challenge' = throwCryptoError . scalarDecodeLong . hashWith SHA256 $ (B.concat [pointEncode αG, pointEncode publicKey, m])
+        lhs :: Point
+        lhs = pointMulByCofactor $ toPoint response
+        rhs :: Point
+        rhs = pointMulByCofactor $ αG `pointAdd` (challenge' `pointMul` publicKey)
+        result :: Bool
+        result = lhs == rhs
+
+edDSA :: Message -> IO ()
+edDSA m = do
+    privateKey <- scalarGenerate
+    let publicKey = toPoint privateKey
+    let (αG, response) = edDSASign privateKey m
+    let result = edDSAVerify publicKey (αG, response) m
+    print result
