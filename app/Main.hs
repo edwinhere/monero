@@ -10,6 +10,7 @@ import Crypto.ECC.Edwards25519
 import Crypto.Hash
 import Crypto.Error
 import Data.Modular
+import Control.Monad (replicateM)
 
 type PrimeOrder = Integer/7237005577332262213973186563042994240857116359379907606001950938285454250989
 type PrivateKey = Scalar
@@ -140,3 +141,25 @@ edDSA m = do
     let (αG, response) = edDSASign privateKey m
     let result = edDSAVerify publicKey (αG, response) m
     print result
+
+lsag :: IO ()
+lsag = do
+    keyPairs <- ((\x -> (x, toPoint x)) <$>) <$>
+        replicateM 3 scalarGenerate
+    let publicKeys = snd <$> keyPairs
+        privateKey = (fst <$> keyPairs) !! 2
+        keyImage = toKeyImage publicKeys privateKey
+    α <- scalarGenerate
+    fakeResposes <- replicateM 3 scalarGenerate
+    return ()
+
+hashToScalar :: ByteString -> Scalar
+hashToScalar bs = throwCryptoError . scalarDecodeLong . hashWith SHA256 $ bs
+
+hashToPoint :: ByteString -> Point
+hashToPoint = toPoint . hashToScalar
+
+toKeyImage :: [PublicKey] -> PrivateKey -> Point
+toKeyImage publicKeys privateKey = privateKey `pointMul` hashToPoint (
+        B.concat (pointEncode <$> publicKeys)
+    )
