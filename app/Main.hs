@@ -11,11 +11,16 @@ import Crypto.Hash
 import Crypto.Error
 import Data.Modular
 import Control.Monad (replicateM)
+import Data.List as L (unfoldr)
+import Data.IntMap as IM
+import Crypto.Random.Types
 
 type PrimeOrder = Integer/7237005577332262213973186563042994240857116359379907606001950938285454250989
 type PrivateKey = Scalar
 type PublicKey  = Point
 type Message = ByteString
+type IndexedScalars = IM.IntMap Scalar
+type IndexedScalar = (IM.Key, Scalar)
 
 
 s2bs :: Scalar -> ByteString
@@ -142,15 +147,35 @@ edDSA m = do
     let result = edDSAVerify publicKey (αG, response) m
     print result
 
-lsag :: IO ()
-lsag = do
+lsag :: Message -> IO ()
+lsag m = do
+    let
+        secretIndex :: Int
+        secretIndex = 2
     keyPairs <- ((\x -> (x, toPoint x)) <$>) <$>
         replicateM 3 scalarGenerate
     let publicKeys = snd <$> keyPairs
-        privateKey = (fst <$> keyPairs) !! 2
+        privateKey = (fst <$> keyPairs) !! secretIndex
         keyImage = toKeyImage publicKeys privateKey
     α <- scalarGenerate
-    fakeResposes <- replicateM 3 scalarGenerate
+    let
+        αG :: Point
+        αG = toPoint α
+    fakeResponses <- generateFakeResponses 3 secretIndex
+    let
+        seedChallenge :: IndexedScalar
+        seedChallenge = (,) (secretIndex + 1) . hashToScalar $ B.concat (
+            (pointEncode <$> publicKeys) ++ [
+                pointEncode (toKeyImage publicKeys privateKey),
+                m,
+                pointEncode αG,
+                pointEncode (α `pointMul` (ringToPoint publicKeys))
+              ]
+         )
+        generateChallenge :: IndexedScalar -> Maybe (IndexedScalar, IndexedScalar)
+        generateChallenge (index, scalar) = undefined
+        challenges :: IndexedScalars
+        challenges = IM.fromList $ L.unfoldr generateChallenge seedChallenge
     return ()
 
 hashToScalar :: ByteString -> Scalar
@@ -159,7 +184,20 @@ hashToScalar bs = throwCryptoError . scalarDecodeLong . hashWith SHA256 $ bs
 hashToPoint :: ByteString -> Point
 hashToPoint = toPoint . hashToScalar
 
-toKeyImage :: [PublicKey] -> PrivateKey -> Point
-toKeyImage publicKeys privateKey = privateKey `pointMul` hashToPoint (
+ringToPoint :: [PublicKey] -> Point
+ringToPoint publicKeys = hashToPoint (
         B.concat (pointEncode <$> publicKeys)
     )
+
+toKeyImage :: [PublicKey] -> PrivateKey -> Point
+toKeyImage publicKeys privateKey = privateKey `pointMul` (ringToPoint publicKeys)
+
+generateFakeResponses :: MonadRandom randomly => Int -> IM.Key -> randomly IndexedScalars
+generateFakeResponses ringSize secretIndex = do
+    scalars <- replicateM ringSize scalarGenerate
+    let
+        indexedList :: [IndexedScalar]
+        indexedList = [(index, scalar) | index <- [1..ringSize], scalar <- scalars ]
+        result :: IM.IntMap Scalar
+        result = IM.delete secretIndex $ IM.fromAscList indexedList
+    return result
