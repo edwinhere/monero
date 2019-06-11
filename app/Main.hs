@@ -155,6 +155,7 @@ lsag m = do
     keyPairs <- ((\x -> (x, toPoint x)) <$>) <$>
         replicateM 3 scalarGenerate
     let publicKeys = snd <$> keyPairs
+        indexedPublicKeys = IM.fromAscList [(index, publicKey) | index <- [1..], publicKey <- publicKeys]
         privateKey = (fst <$> keyPairs) !! secretIndex
         keyImage = toKeyImage publicKeys privateKey
     α <- scalarGenerate
@@ -173,9 +174,26 @@ lsag m = do
               ]
          )
         generateChallenge :: IndexedScalar -> Maybe (IndexedScalar, IndexedScalar)
-        generateChallenge (index, scalar) = undefined
+        generateChallenge (index, scalar) = if index == secretIndex
+           then Nothing
+           else Just (indexedScalar, indexedScalar)
+            where
+                indexedScalar = (,) (index + 1) . hashToScalar $ B.concat (
+                    (pointEncode <$> publicKeys) ++ [
+                        pointEncode (toKeyImage publicKeys privateKey),
+                        m,
+                        pointEncode $ toPoint (fakeResponses ! index) `pointAdd` (scalar `pointMul` (indexedPublicKeys ! index)),
+                        pointEncode $ (
+                            ((fakeResponses ! index ) `pointMul` (ringToPoint publicKeys))
+                            `pointAdd`
+                            (scalar `pointMul` keyImage)
+                          )
+                      ]
+                 )
         challenges :: IndexedScalars
         challenges = IM.fromList $ L.unfoldr generateChallenge seedChallenge
+        realResponse :: Scalar
+        realResponse = α `scalarSub` ((challenges ! secretIndex) `scalarMul` privateKey)
     return ()
 
 hashToScalar :: ByteString -> Scalar
@@ -197,7 +215,7 @@ generateFakeResponses ringSize secretIndex = do
     scalars <- replicateM ringSize scalarGenerate
     let
         indexedList :: [IndexedScalar]
-        indexedList = [(index, scalar) | index <- [1..ringSize], scalar <- scalars ]
+        indexedList = [(index, scalar) | index <- [1..], scalar <- scalars ]
         result :: IM.IntMap Scalar
         result = IM.delete secretIndex $ IM.fromAscList indexedList
     return result
