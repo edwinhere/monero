@@ -194,7 +194,23 @@ lsag m = do
         challenges = IM.fromList $ L.unfoldr generateChallenge seedChallenge
         realResponse :: Scalar
         realResponse = α `scalarSub` ((challenges ! secretIndex) `scalarMul` privateKey)
-    return ()
+        allResponses :: IndexedScalars
+        allResponses = IM.insert secretIndex realResponse fakeResponses
+        firstChallenge :: IndexedScalars
+        firstChallenge = filterWithKey (\x -> const (x == 1)) challenges
+        signature :: (IndexedScalars, IndexedScalars)
+        signature = (firstChallenge, allResponses)
+-- Verify
+        folder :: Key -> Scalar -> Scalar -> Scalar
+        folder key response challenge = undefined
+        verify :: (IndexedScalars, IndexedScalars) -> Scalar
+        verify (cs, rs) = IM.foldrWithKey folder (cs ! 1) rs
+        lhs :: Scalar
+        lhs = verify signature
+        rhs :: Scalar
+        rhs = firstChallenge ! 1
+    print . B.unpack . s2bs $ lhs
+    print . B.unpack . s2bs $ rhs
 
 hashToScalar :: ByteString -> Scalar
 hashToScalar bs = throwCryptoError . scalarDecodeLong . hashWith SHA256 $ bs
